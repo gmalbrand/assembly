@@ -61,13 +61,20 @@ read_input:
     movl    $3,                 %ecx        /* Set divisor */
     cdq
     div     %ecx                            /* Divide message length by 3 */
-
-    cmp     $0,                 %edx
+    xor     %rdi,               %rdi        /* Reset rdi to 0 */
+    mov     %rcx,               %rdi        /* Saving remainder */
+    /* Compute result length */
+    mov     %rax,               -32(%rbp)
+    mov     $4,                 %rcx
+    mul     %rcx
+    mov     %rax,               -32(%rbp)
+    
+    cmp     $0,                 %rdi
     je      encode                          /* if length % 3 = 0 no need to 
                                                 pad with = at end of encode message */
-    
+    addq    $4,                 -32(%rbp)
     movq    $3,                 -16(%rbp)   /* Compute required padding */
-    subl    %edx,               -16(%rbp)
+    subq    %rdi,               -16(%rbp)
     movq    -16(%rbp),          %rcx
 
     /* 
@@ -125,7 +132,7 @@ end_encode:
     mov     $1,                 %rax
     mov     $1,                 %rdi
     leaq    (%rsp),             %rsi        /* Move down the stack with buf_len!! */
-    mov     $1364,              %rdx
+    mov     -32(%rbp),          %rdx
     syscall
     
 
