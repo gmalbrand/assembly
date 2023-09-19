@@ -62,7 +62,7 @@ read_input:
     cdq
     div     %ecx                            /* Divide message length by 3 */
     xor     %rdi,               %rdi        /* Reset rdi to 0 */
-    mov     %rcx,               %rdi        /* Saving remainder */
+    mov     %rdx,               %rdi        /* Saving remainder */
     /* Compute result length */
     mov     %rax,               -32(%rbp)
     mov     $4,                 %rcx
@@ -81,41 +81,32 @@ read_input:
     ** Remmember to fill padding with 0 
     */
 encode:                                     /* Initialize loop */        
-    movq    $0,                 -24(%rbp)    
+    movq    $0,                 -24(%rbp)
+    mov     $0,                 %rdx        /* Output position */
+
 encoding_loop:
-    xor     %rdx,               %rdx        /* Set rdx to 0 */
-    movb    -24(%rbp),          %dl         /* Get first character position */
-    movb    1364(%rsp, %rdx),   %al         /* Get first character */
-    shr     $2,                 %al         /* Shift 2 bits right */
-    movb    -96(%rbp,%rax),     %al
-    movb    %al,                (%rsp,%rdx) /* Move result in response */
+    xor     %rax,               %rax        /* Set rax to 0 */
+    xor     %rdi,               %rdi
+    movq    -24(%rbp),          %rdi        /* Get read position */
+    mov     $3,                 %rcx
+big_endian:
+    movb    1364(%rsp, %rdi),   %al        /* Get next 3 bytes big endian */
+    shl     $8,                 %rax
+    inc     %rdi
+    loop    big_endian
+    shr     $8,                 %rax
 
-    movb    1364(%rsp, %rdx),   %al         /* Get first character */
-    inc     %rdx                            /* Increment character position */
-    movb    1364(%rsp, %rdx),   %cl         /* Get second character */
-    andb    $0x3,               %al         /* Only keep last 2 bis */
-    shl     $4,                 %al         /* Shift 4 bits left of first character */
-    shr     $4,                 %cl         /* Shift 4 bits right of second character */
-    orb     %al,                %cl         /* Get new value */
-    movb    -96(%rbp, %rcx),    %al         /* Get corresponding character */
-    movb    %al,                (%rsp,%rdx) /* Move result in response */
+    mov     $4,                 %rcx        /* Set loop countdown to 4 */
+get_c:
+    movl    %eax,               %esi
+    shr     $18,                %esi
+    and     $0x3F,              %esi
+    movb    -96(%rbp,%rsi),     %sil
+    movb    %sil,               (%rsp,%rdx)
+    shl     $6,                 %eax
+    inc     %rdx
+    loop    get_c
 
-    movb    1364(%rbp, %rdx),   %al         /* Get second character */
-    inc     %rdx                            /* Increment character position */
-    movb    1364(%rbp, %rdx),   %cl         /* Get Third character */
-    andb    $0xF,               %al         /* Only keep first 4 bits */
-    shl     $2,                 %al         /* Shift 2 bits left */
-    shr     $6,                 %cl         /* Shift 6 bits right */
-    orb     %al,                %cl         /* Get new value */
-    movb    -96(%rbp, %rcx),    %al         /* Get corresponding character */
-    movb    %al,                (%rsp,%rdx) /* Move result in response */
-
-    movb    1364(%rbp, %rdx),   %al         /* Get third character */
-    inc     %rdx                            /* Increment character position */
-    and     $0x3F,              %al         /* Only keep the first 6 bits */
-    movb    -96(%rbp, %rax),    %al         /* Get corresponding character */
-    movb    %al,                (%rsp,%rdx) /* Move result in response */
-    
     /* loop condition */
     addq    $3,                 -24(%rbp)   /* increment position by 3 */   
     movq    -8(%rbp),           %rax        
@@ -125,6 +116,15 @@ encoding_loop:
     /*
     ** Padding with = if required
     */
+    movq    -16(%rbp),          %rcx
+    cmp     $0,                 %rcx
+    je      end_encode
+    movq    -32(%rbp),          %rax
+    subq    %rcx,               %rax
+padding:
+    movb    $0x3d,              (%rsp,%rax)
+    inc     %rax
+    loop    padding
 
 end_encode:
 
