@@ -49,24 +49,24 @@ read_input:
     mov     $0,                 %rax        /* Read syscall */
     mov     $0,                 %rdi        /* Set fd to STDIN */
     leaq    1364(%rsp),         %rsi        /* Write result on stack */
-    mov     $1024,              %rdx        /* Read length */
+    mov     $1023,              %rdx        /* Read length */
     syscall
     
     mov     %rax,               -8(%rbp)    /* Copy read length to message size */
 
+    cmp    $0,                 %rax
+    je      end_encode
+
     /*
     ** Convert in b64 
     */            
-    movl    %eax,               %ebx        /* Set dividend */
-    movl    $3,                 %ecx        /* Set divisor */
-    cdq
-    div     %ecx                            /* Divide message length by 3 */
-    xor     %rdi,               %rdi        /* Reset rdi to 0 */
-    mov     %rdx,               %rdi        /* Saving remainder */
+    xor     %rdx,               %rdx
+    mov     $3,                 %rbx        /* Set divisor, dividend is already in rax */
+    div     %rbx                            /* Divide message length by 3 */
+    mov     %rdx,               %rdi
     /* Compute result length */
-    mov     %rax,               -32(%rbp)
-    mov     $4,                 %rcx
-    mul     %rcx
+    mov     $4,                 %rbx
+    mul     %rbx
     mov     %rax,               -32(%rbp)
     
     cmp     $0,                 %rdi
@@ -75,7 +75,6 @@ read_input:
     addq    $4,                 -32(%rbp)
     movq    $3,                 -16(%rbp)   /* Compute required padding */
     subq    %rdi,               -16(%rbp)
-    movq    -16(%rbp),          %rcx
 
     /* 
     ** Remmember to fill padding with 0 
@@ -135,6 +134,16 @@ end_encode:
     mov     -32(%rbp),          %rdx
     syscall
     
+    cmpq    $1023,              -8(%rbp)    /* Check if there is still data on stdin */ 
+    je      read_input
+
+
+    push    $0xa
+    mov     $1,                 %rax
+    mov     $1,                 %rdi
+    leaq    (%rsp),             %rsi
+    mov     $1,                 %rdx
+    syscall
 
 exit_0:
     /* Exit 0 */
